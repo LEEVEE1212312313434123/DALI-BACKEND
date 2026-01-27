@@ -1,0 +1,79 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  CLIENT
+  SELLER
+  ADMIN
+}
+
+enum BusinessType {
+  FERRETERIA
+  RESTAURANTE
+  TECNOLOGIA
+  OTRO
+}
+
+model User {
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  password            String
+  firstName           String?  @map("first_name")
+  lastName            String?  @map("last_name")
+  phoneNumber         String?  @map("phone_number")
+  role                UserRole @default(CLIENT)
+  onboardingCompleted Boolean  @default(false) @map("onboarding_completed")
+
+  // Relación con el negocio (solo si es SELLER)
+  business Business?
+
+  // Auditoría y Sesiones
+  sessions          Session[]
+  acceptedDocuments String[]  @map("accepted_documents")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Business {
+  id           String       @id @default(uuid())
+  name         String
+  businessType BusinessType @map("business_type")
+  yearsActive  Int          @map("years_active")
+
+  // Relación uno a uno con User
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("businesses")
+}
+
+model Session {
+  id           String @id @default(uuid())
+  refreshToken String @unique @map("refresh_token")
+  platform     String // android, ios, web
+  osVersion    String @map("os_version")
+  appVersion   String @map("app_version")
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+
+  @@map("sessions")
+}
