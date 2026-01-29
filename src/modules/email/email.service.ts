@@ -14,6 +14,7 @@ export class EmailService {
         return {
             email,
             exists: !!exists,
+            timestamp: new Date().toISOString()
         };
     }
 }
