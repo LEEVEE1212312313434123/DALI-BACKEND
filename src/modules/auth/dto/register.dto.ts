@@ -50,7 +50,8 @@ export class RegisterDto {
     @IsArray()
     accepted_documents: string[];
 
-    // Propiedad interna para el servicio
+    @IsOptional()
+    @IsString()
     mode?: 'CLIENT' | 'SELLER';
 }
 
