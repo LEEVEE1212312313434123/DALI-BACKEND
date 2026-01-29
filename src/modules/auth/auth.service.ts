@@ -4,23 +4,26 @@ import { LoginDto } from '@/modules/auth/dto/login.dto'; // Similar al anterior 
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { RegisterDto, RegisterSellerDto } from './dto/register.dto';
+import { EmailService } from '@/modules/email/email.service';
 
 @Injectable()
 export class AuthService {
     constructor(
         private prisma: PrismaService,
         private jwtService: JwtService,
+        private emailService: EmailService,
     ) { }
 
-    async register(data: RegisterDto | RegisterSellerDto) {
+    async register(data: RegisterDto | RegisterSellerDto, mode: 'CLIENT' | 'SELLER') {
         const { email, password, ...userData } = data;
-
+        const { exists } = await this.emailService.checkEmail(email);
         // Extraemos 'business' validando si existe en el objeto 'data'
         const business = 'business' in data ? data.business : null;
 
         // Verificar si el usuario ya existe
-        const existingUser = await this.prisma.user.findUnique({ where: { email } });
-        if (existingUser) throw new ConflictException('Email already registered');
+        if (exists) {
+            throw new ConflictException('Email ya registrado');
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -32,13 +35,13 @@ export class AuthService {
                     firstName: userData.first_name,
                     lastName: userData.last_name,
                     phoneNumber: userData.phone_number,
-                    role: data.mode || 'CLIENT',
                     acceptedDocuments: data.accepted_documents,
+                    role: mode || 'CLIENT',
                 },
             });
 
             // Usamos la variable 'business' que extrajimos arriba
-            if (data.mode === 'SELLER' && business) {
+            if (mode === 'SELLER' && business) {
                 await tx.business.create({
                     data: {
                         name: business.name,
@@ -80,9 +83,16 @@ export class AuthService {
 
     private async generateTokens(user: any) {
         const payload = { sub: user.id, email: user.email, role: user.role };
+        const [accessToken, refreshToken] = await Promise.all([
+            this.jwtService.signAsync(payload), // Usa la config por defecto (1h)
+            this.jwtService.signAsync(payload, {
+                secret: process.env.JWT_SECRET,
+                expiresIn: '7d', // El refresh token dura mucho más
+            }),
+        ]);
         return {
-            accessToken: await this.jwtService.signAsync(payload),
-            refreshToken: 'refresh_token_example', // Implementar lógica de refresh real
+            accessToken,
+            refreshToken,
             tokenType: 'Bearer',
             expiresIn: 3600,
             user: {

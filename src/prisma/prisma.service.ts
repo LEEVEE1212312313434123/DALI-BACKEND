@@ -4,15 +4,8 @@ import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-    constructor() {
-        super({
-            datasources: {
-                db: {
-                    url: process.env.DATABASE_URL,
-                },
-            },
-        });
-    }
+    // Eliminamos el constructor con 'datasources' 
+    // porque Prisma 6 ya lo lee del esquema automáticamente.
 
     async onModuleInit() {
         await this.$connect();
